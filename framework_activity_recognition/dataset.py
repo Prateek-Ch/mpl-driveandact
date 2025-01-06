@@ -246,38 +246,36 @@ class SlidingWindowDataset(FileBasedDataset):
         windows = []
         labels = []
         for idx in range(len(self.data_file_list)):
-            frames, label = self.__loaditem__(idx)
+            frames, frame_labels = self.__loaditem__(idx)  # Load frames and their labels
             num_frames = frames.shape[0]
             for start in range(0, num_frames - self.window_size + 1, self.step_size):
                 end = start + self.window_size
                 windows.append(frames[start:end])
-                labels.append(label)
+
+                # Assign labels based on majority or any activity presence
+                window_labels = frame_labels[start:end]
+                activity_present = np.bincount(window_labels).argmax()  # Most frequent label can be the activity of this particular
+                labels.append(activity_present)
+
         return windows, labels
-    
+
     def __loaditem__(self, index):
+        if torch.is_tensor(index):
+            index = index.toList()
         file_path = self.data_file_list.loc[index, 'file_id']
         frame_start = self.data_file_list.loc[index, 'frame_start']
         frame_end = self.data_file_list.loc[index, 'frame_end']
         frames = loadVideoSequence(file_path, frame_start, frame_end, self.resize)
+
+        # Create frame-wise labels
+        frame_labels = np.zeros(len(frames), dtype=np.int64)
         label = self.annotations_transformed[index]
-        return frames, label
+        frame_labels[:] = label  # Assign same label to all frames initially
+
+        return frames, frame_labels
 
     def __len__(self):
         return len(self.windows)
 
     def __getitem__(self, idx):
-        window, label = self.windows[idx], self.window_labels[idx]
-
-        # Visualize the window using cv2 (one frame at a time)
-        for i, frame in enumerate(window):
-            if frame.shape[2] == 3:
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            cv2.imshow(f"Frame {i + 1} of Window", frame)
-            key = cv2.waitKey(500)
-            if key == 27:  # ESC key to exit
-                break
-
-        # Close all OpenCV windows after visualization
-        cv2.destroyAllWindows()
-
-        return window, label
+        return self.windows[idx], self.window_labels[idx]
