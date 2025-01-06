@@ -6,7 +6,7 @@ experiment:
 data:
   name: "DriveAndAct"
   util_location: "framework_activity_recognition.datautils.prepare_drivenact"
-  split_nr: 0 # 1 2
+  split_nr: 101 # 1 2
   folder_splits: "./activities_3s/" # path to folder containing split ex: "./driveandact/iccv_activities_3s/activities_3s/"
   data_path: "./kinect_color/" # path to folder containing downsampled Drive&Act video data
   views: ["a_column_co_driver"]

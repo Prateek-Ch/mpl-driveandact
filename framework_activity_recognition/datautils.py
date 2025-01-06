@@ -5,7 +5,7 @@ import os
 from framework_activity_recognition.videotransform import RandomSelect, RandomCrop, RandomHorizontalFlip,\
     normalizeColorInputZeroCenterUnitRange, CenterCrop, ToTensor
 from framework_activity_recognition.parser import parseDriveNActSplitFiles, parseDriveNActTestSplitFiles
-from framework_activity_recognition.dataset import VideoFileBasedDataset, DriveNActDataset
+from framework_activity_recognition.dataset import SlidingWindowDataset, DriveNActDataset
 
 def prepare_drivenact(config_file):
     """
@@ -40,11 +40,11 @@ def prepare_drivenact(config_file):
     annotations_train = train_df['activity'].tolist()
     annotations_test = test_df['activity'].tolist()
 
-    dataset_train = DriveNActDataset(train_df, annotations_train, None, transform_training)
+    dataset_train = SlidingWindowDataset(train_df, annotations_train, None, transform_training)
 
     annotation_converter = dataset_train.__get_annotation_converter__()
 
-    dataset_test = DriveNActDataset(test_df,annotations_test,annotation_converter,transform_test)
+    dataset_test = SlidingWindowDataset(test_df,annotations_test,annotation_converter,transform_test)
 
     return dataset_train, dataset_test
 

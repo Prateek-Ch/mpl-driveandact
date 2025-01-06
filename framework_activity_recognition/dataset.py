@@ -2,6 +2,8 @@ import os
 import torch
 import random as rn
 import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from framework_activity_recognition.processing import loadVideo, random_select, loadVideoSequence
 
@@ -231,3 +233,51 @@ class DriveNActDataset(FileBasedDataset):
 
     def __len__(self):
         return len(self.data_file_list.index)
+    
+class SlidingWindowDataset(FileBasedDataset):
+    def __init__(self, df, labels, annotation_converter=None, transform=None, resize=None, window_size=16, step_size=8):
+        super().__init__(df, labels, annotation_converter, transform)
+        self.resize = resize
+        self.window_size = window_size
+        self.step_size = step_size
+        self.windows, self.window_labels = self.create_sliding_windows()
+
+    def create_sliding_windows(self):
+        windows = []
+        labels = []
+        for idx in range(len(self.data_file_list)):
+            frames, label = self.__loaditem__(idx)
+            num_frames = frames.shape[0]
+            for start in range(0, num_frames - self.window_size + 1, self.step_size):
+                end = start + self.window_size
+                windows.append(frames[start:end])
+                labels.append(label)
+        return windows, labels
+    
+    def __loaditem__(self, index):
+        file_path = self.data_file_list.loc[index, 'file_id']
+        frame_start = self.data_file_list.loc[index, 'frame_start']
+        frame_end = self.data_file_list.loc[index, 'frame_end']
+        frames = loadVideoSequence(file_path, frame_start, frame_end, self.resize)
+        label = self.annotations_transformed[index]
+        return frames, label
+
+    def __len__(self):
+        return len(self.windows)
+
+    def __getitem__(self, idx):
+        window, label = self.windows[idx], self.window_labels[idx]
+
+        # Visualize the window using cv2 (one frame at a time)
+        for i, frame in enumerate(window):
+            if frame.shape[2] == 3:
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            cv2.imshow(f"Frame {i + 1} of Window", frame)
+            key = cv2.waitKey(500)
+            if key == 27:  # ESC key to exit
+                break
+
+        # Close all OpenCV windows after visualization
+        cv2.destroyAllWindows()
+
+        return window, label
