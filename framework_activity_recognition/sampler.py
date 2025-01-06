@@ -1,5 +1,5 @@
 from typing import Callable
-from framework_activity_recognition.dataset import FileBasedDataset
+from framework_activity_recognition.dataset import FileBasedDataset, SlidingWindowDataset
 
 import pandas as pd
 import torch
@@ -48,6 +48,9 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
             return dataset.samples[:][1]
         elif isinstance(dataset, torch.utils.data.Subset):
             return dataset.dataset.imgs[:][1]
+        elif isinstance(dataset, SlidingWindowDataset):
+            annotations_original = [dataset.annotation_converter[a] for a in dataset.window_labels] 
+            return annotations_original
         elif isinstance(dataset, FileBasedDataset):
             return dataset.annotations_original
         elif isinstance(dataset, torch.utils.data.Dataset):
