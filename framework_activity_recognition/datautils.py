@@ -4,7 +4,7 @@ import torchvision.transforms as transforms
 import os
 from framework_activity_recognition.videotransform import RandomSelect, RandomCrop, RandomHorizontalFlip,\
     normalizeColorInputZeroCenterUnitRange, CenterCrop, ToTensor
-from framework_activity_recognition.parser import parseHMDBSplitFiles, parseDriveNActSplitFiles, parseDriveNActTestSplitFiles
+from framework_activity_recognition.parser import parseDriveNActSplitFiles, parseDriveNActTestSplitFiles
 from framework_activity_recognition.dataset import VideoFileBasedDataset, DriveNActDataset
 
 def prepare_drivenact(config_file):

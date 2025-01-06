@@ -30,7 +30,7 @@ Do not forget to install the requirement stated in the folder.
 ### Training
 To train baseline RGB I3D model on Drive&Act, use the following command
 ```
-python -m framework_activity_recognition config/train/i3dbaseline.yaml
+python -m framework_activity_recognition train config/train/i3dbaseline.yaml
 ```
 To train other baseline or using knowledge distillation and/or quantization on Drive&Act, replace the yaml file in the command to one of the following yaml file in config/train folder
 
@@ -47,7 +47,7 @@ To train other baseline or using knowledge distillation and/or quantization on D
 ### Test
 To test RGB I3D Model with test split of Drive&Act, use the following command
 ```
-python -m framework_activity_recognition config/test/i3dtest.yaml
+python -m framework_activity_recognition test config/test/i3dtest.yaml
 ```
 To test another model, replace the yaml file in the command with one of the following yaml file in config/test folder
 

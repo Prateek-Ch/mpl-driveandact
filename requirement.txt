@@ -9,12 +9,12 @@ idna==3.3
 imageio
 importlib-metadata
 Markdown
-numpy
+numpy==1.23.5
 oauthlib==3.2.0
 opencv-python
 pandas
 Pillow==8.4.0
-protobuf
+protobuf==3.20.0
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 python-dateutil==2.8.2

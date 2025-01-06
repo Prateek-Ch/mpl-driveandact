@@ -7,10 +7,10 @@ data:
   name: "DriveAndAct"
   util_location: "framework_activity_recognition.datautils.prepare_drivenact"
   split_nr: 0 # 1 2
-  folder_splits: # path to folder containing split ex: "./driveandact/iccv_activities_3s/activities_3s/"
-  data_path: # path to folder containing downsampled Drive&Act video data
-  views: ["inner_mirror"]
-  new_suffix: ".avi"
+  folder_splits: "./activities_3s/" # path to folder containing split ex: "./driveandact/iccv_activities_3s/activities_3s/"
+  data_path: "./kinect_color/" # path to folder containing downsampled Drive&Act video data
+  views: ["a_column_co_driver"]
+  new_suffix: ".mp4"
   sampler:
     use: True
     location: "framework_activity_recognition.sampler.ImbalancedDatasetSampler"
@@ -26,7 +26,7 @@ student:
 
 pretraining:
   use: True
-  path: # path to I3D model pretrained with Kinetics-400
+  path: "./model/pretrained/model_rgb.pth" # path to I3D model pretrained with Kinetics-400
   model_num_classes: 400
   fine_tune_only_last_layer: False
   last_layer_variable: "conv3d_0c_1x1"
