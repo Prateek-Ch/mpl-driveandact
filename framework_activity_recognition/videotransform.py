@@ -47,7 +47,7 @@ class RandomCrop(object):
         self.width = width
 
     def __call__(self, input_tensor):
-
+        # currently results in a shape of (16, 16, 224, 224, 3)
         result = random_crop(input_tensor, self.height, self.width)
 
         return result
@@ -76,14 +76,18 @@ class RandomHorizontalFlip(object):
 
 
 class ToTensor(object):
+    """"
+        Takes the input tensor which in case of 5D is of the shape (16, 16, 224, 224, 3)
+        Outputs a  resultant tensor of the shape (3, 16, 16, 224, 224)
+    """
     def __call__(self, input_tensor):
-        # Check the number of dimensions of input_tensor
         if input_tensor.ndim == 4:
             # Input tensor is in the shape (num_frames, height, width, channels)
             result = input_tensor.transpose(3, 0, 1, 2)  # (channels, num_frames, height, width)
         elif input_tensor.ndim == 5:
-            # Input tensor is in the shape (num_windows, window_size, height, width, channels)
-            result = input_tensor.transpose(4, 0, 1, 2, 3)  # (channels, num_windows, window_size, height, width)
+            # Input tensor is in the shape (num_windows, num_frames, height, width, channels)
+            # current input tensor shape is (16, 16, 224, 224, 3)
+            result = input_tensor.transpose(4, 0, 1, 2, 3)  # (channels, num_windows, num_frames, height, width)
         else:
             raise ValueError(f"Unsupported tensor shape: {input_tensor.shape}")
 
@@ -91,12 +95,10 @@ class ToTensor(object):
 
         return torch.from_numpy(result)
 
-import torch
-import numpy as np
-
 def custom_collate_fn(batch):
     """Custom collate function to handle padding of variable-sized video clips and labels."""
     
+    # data_batch contains 9 elements of shape [3, 16, 16, 224, 224]
     data_batch = [item[0] for item in batch]  # Extract data (video clips)
     label_batch = [item[1] for item in batch]  # Extract labels
     
