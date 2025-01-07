@@ -246,19 +246,8 @@ class SlidingWindowDataset(FileBasedDataset):
         windows = []
         labels = []
         for idx in range(len(self.data_file_list)):
-            frames, frame_labels = self.__loaditem__(idx)  # Load frames and their labels
-            num_frames = frames.shape[0]
-            for start in range(0, num_frames - self.window_size + 1, self.step_size):
-                end = start + self.window_size
-                windows.append(frames[start:end])
-
-                # Assign labels based on majority or any activity presence
-                window_labels = frame_labels[start:end]
-                activity_present = np.bincount(window_labels).argmax()  # Most frequent label can be the activity of this particular
-                labels.append(activity_present)
-
+            windows, labels = self.__loaditem__(idx)
         return windows, labels
-
     def __loaditem__(self, index):
         if torch.is_tensor(index):
             index = index.toList()
@@ -272,10 +261,21 @@ class SlidingWindowDataset(FileBasedDataset):
         label = self.annotations_transformed[index]
         frame_labels[:] = label  # Assign same label to all frames initially
 
-        return frames, frame_labels
+        windows = []
+        labels = []
+        
+        # Create sliding windows from frames
+        num_frames = len(frames)
+        for start in range(0, num_frames - self.window_size + 1, self.step_size):
+            end = start + self.window_size
+            window_frames = frames[start:end]
+            window_labels = frame_labels[start:end]
+            window_label = np.bincount(window_labels).argmax()  # Most frequent label in the window
+            windows.append(window_frames)
+            labels.append(window_label)
+        
+        # Return a single window and label for the current index
+        return np.array(windows), np.array(labels)
 
     def __len__(self):
         return len(self.windows)
-
-    def __getitem__(self, idx):
-        return self.windows[idx], self.window_labels[idx]

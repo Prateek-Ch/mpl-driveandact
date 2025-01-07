@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from framework_activity_recognition.wrapper import QuantizationAwareTrainingWrapper, BenchmarkWrapper
 from torch.utils.tensorboard import SummaryWriter
 from framework_activity_recognition.processing import get_entity_by_module_path
+from framework_activity_recognition.videotransform import custom_collate_fn
 from collections import OrderedDict
 
 
@@ -76,9 +77,9 @@ def train(config_file):
 
     if data_config["sampler"]["use"]:
         sampler = get_entity_by_module_path(data_config["sampler"]["location"])(train_set)
-        train_loader = DataLoader(train_set, sampler=sampler, batch_size=train_config["batch_size"], shuffle=False, num_workers=train_config["num_workers"])
+        train_loader = DataLoader(train_set, sampler=sampler, batch_size=train_config["batch_size"], shuffle=False, num_workers=train_config["num_workers"], collate_fn=custom_collate_fn)
     else:
-        train_loader = DataLoader(train_set, batch_size=train_config["batch_size"], shuffle=True, num_workers=train_config["num_workers"])
+        train_loader = DataLoader(train_set, batch_size=train_config["batch_size"], shuffle=True, num_workers=train_config["num_workers"], collate_fn=custom_collate_fn)
 
     test_loader = DataLoader(test_set, batch_size=train_config["batch_size"], shuffle=False, num_workers=train_config["num_workers"])
     #determine loss criterion for student loss

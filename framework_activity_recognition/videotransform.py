@@ -77,14 +77,69 @@ class RandomHorizontalFlip(object):
 
 class ToTensor(object):
     def __call__(self, input_tensor):
+        # Check the number of dimensions of input_tensor
+        if input_tensor.ndim == 4:
+            # Input tensor is in the shape (num_frames, height, width, channels)
+            result = input_tensor.transpose(3, 0, 1, 2)  # (channels, num_frames, height, width)
+        elif input_tensor.ndim == 5:
+            # Input tensor is in the shape (num_windows, window_size, height, width, channels)
+            result = input_tensor.transpose(4, 0, 1, 2, 3)  # (channels, num_windows, window_size, height, width)
+        else:
+            raise ValueError(f"Unsupported tensor shape: {input_tensor.shape}")
 
-
-        # Swap color channels axis because
-        # numpy frames: Frames ID x Height x Width x Channels
-        # torch frames: Channels x Frame ID x Height x Width
-
-        result = input_tensor.transpose(3, 0, 1, 2)
         result = np.float32(result)
 
         return torch.from_numpy(result)
 
+import torch
+import numpy as np
+
+def custom_collate_fn(batch):
+    """Custom collate function to handle padding of variable-sized video clips and labels."""
+    
+    data_batch = [item[0] for item in batch]  # Extract data (video clips)
+    label_batch = [item[1] for item in batch]  # Extract labels
+    
+    # Convert label_batch elements from numpy.ndarray to torch.Tensor
+    label_batch = [torch.tensor(label) if isinstance(label, np.ndarray) else label for label in label_batch]
+    
+    # Find the max dimensions across all clips
+    max_frames = max([x.shape[2] for x in data_batch])  # Max number of frames
+    max_height = max([x.shape[3] for x in data_batch])  # Max height
+    max_width = max([x.shape[4] for x in data_batch])   # Max width
+
+    # Padding logic for frames, height, and width
+    padded_data_batch = []
+    for clip in data_batch:
+        batch_size, channels, frames, height, width = clip.shape
+        
+        # Padding for frames, height, and width
+        if frames < max_frames:
+            pad_frames = max_frames - frames
+            clip = torch.nn.functional.pad(clip, (0, 0, 0, 0, 0, pad_frames), "constant", 0)
+
+        if height < max_height or width < max_width:
+            pad_height = max_height - height
+            pad_width = max_width - width
+            clip = torch.nn.functional.pad(clip, (0, pad_width, 0, pad_height), "constant", 0)
+        
+        padded_data_batch.append(clip)
+    
+    # Stack the data batch into a single tensor
+    data_tensor = torch.stack(padded_data_batch, 0)  # Stack the data into a single tensor
+    
+    # Pad labels to the same length (to the length of the longest label)
+    max_label_length = max([label.size(0) for label in label_batch])  # Get the longest label length
+    padded_label_batch = []
+    for label in label_batch:
+        padding_length = max_label_length - label.size(0)
+        if padding_length > 0:
+            padded_label = torch.cat([label, torch.full((padding_length,), -1)])  # Pad with -1 (or another value)
+        else:
+            padded_label = label
+        padded_label_batch.append(padded_label)
+    
+    # Stack the padded labels
+    label_tensor = torch.stack(padded_label_batch, 0)
+    
+    return data_tensor, label_tensor  # Return a tuple of data and labels
