@@ -247,15 +247,12 @@ class SlidingWindowDataset(FileBasedDataset):
         all_labels = []
         for idx in range(len(self.data_file_list)):
             windows, labels = self.__loaditem__(idx)
-            all_windows.append(windows)
-            all_labels.append(labels)
-            # x is the number of files in the dataset
-            # y windows are created where the shape of each of the window is (number of frames in a window, h, w, channels)
-            # hence the shape of all_windows is (x, y, num of frames, h, w, channels)
+            all_windows.extend(windows)
+            all_labels.extend(labels)
         return np.array(all_windows), np.array(all_labels)
     def __loaditem__(self, index):
         if torch.is_tensor(index):
-            index = index.toList()
+            index = index.tolist()
         file_path = self.data_file_list.loc[index, 'file_id']
         frame_start = self.data_file_list.loc[index, 'frame_start']
         frame_end = self.data_file_list.loc[index, 'frame_end']
@@ -279,8 +276,16 @@ class SlidingWindowDataset(FileBasedDataset):
             windows.append(window_frames)
             labels.append(window_label)
         
-        # Return a single window and label for the current index
         return np.array(windows), np.array(labels)
 
     def __len__(self):
         return len(self.windows)
+
+    def __getitem__(self, idx):
+        # Retrieve window and label
+        window, label = self.windows[idx], self.window_labels[idx]
+        # Apply transformations (frame-wise)
+        if self.transform:
+            window = self.transform(window)
+
+        return window, label

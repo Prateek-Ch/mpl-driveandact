@@ -225,12 +225,12 @@ def center_crop(frames, height, width, pad_zeros_if_too_small = True):
 def random_crop(frames, height, width, pad_zeros_if_too_small = True):
     """
     Takes multiple frames as ndarray with shape
-    (num_windows, window_size, height, width, channels) and crops all
+    (frame id, height, width, channels) and crops all
     frames randomly to desired width and height.
 
     frames: numpy
         all frames (e.g. video) with shape
-        (num_windows, window_size, height, width, channels)
+        (frame id, height, width, channels)
     height: int
         height of the resulting crop
     width: int
@@ -240,31 +240,36 @@ def random_crop(frames, height, width, pad_zeros_if_too_small = True):
     -------
     Numpy: frames
         randomly cropped frames with shape
-        (num_windows, window_size, height, width, channels)
+        (frame id, height, width, channels)
     """
-    
-    num_windows = np.shape(frames)[0]
-    window_size = np.shape(frames)[1]
-    frame_height = np.shape(frames)[2]
-    frame_width = np.shape(frames)[3]
-    channels = np.shape(frames)[4]
+
+    frame_height = np.shape(frames)[1]
+    frame_width = np.shape(frames)[2]
+    t = np.shape(frames)[0]
+    channels = np.shape(frames)[3]
     
     if pad_zeros_if_too_small and (height>frame_height or width > frame_width):
-        frames_new = np.zeros((num_windows, window_size, max(frame_height, height), max(frame_width, width), channels))
-        frames_new[:, :, 0:frame_height, 0:frame_width, :] = frames
+        #desired width
+        frames_new = np.zeros((t,max(frame_height,height),max(frame_width,width),channels))
+        #fill with the old data
+        frames_new[0:t,0:frame_height,0:frame_width,0:channels] =frames
         frames = frames_new
-        frame_height = np.shape(frames)[2]
-        frame_width = np.shape(frames)[3]
+        frame_height = np.shape(frames)[1]
+        frame_width = np.shape(frames)[2]
+
+
+    #Pad with zeros if too small
+    
     origin_range_x = frame_width - width
     origin_range_y = frame_height - height
 
     origin_x = randint(0, origin_range_x)
     origin_y = randint(0, origin_range_y)
 
-    # Crop each frame in each window
-    cropped_frames = frames[:, :, origin_y:origin_y + height, origin_x:origin_x + width, :]
-    
-    return cropped_frames
+    return frames[:,
+                  origin_y: origin_y + height,
+                  origin_x: origin_x + width,
+                  :]
 
 
 def horizontal_flip(frames):

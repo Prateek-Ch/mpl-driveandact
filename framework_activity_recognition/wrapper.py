@@ -108,12 +108,12 @@ class QuantizationAwareTrainingWrapper():
                     self.student_network.apply(torch.quantization.disable_observer)
 
             for i, data in enumerate(train_loader, 0):
+                # In train loader the shape of the dataset.windows is (number_of_windows, number_of_frames, h, w, channels)
+                # And the shape of dataset.windows_labels is (number_of_windows,)
                 self.logger.info("Training on epoch " + str(self.current_epoch + 1) + ", batch " + str(i))
                 
-                # here the transformation is performed and the shape of inputs becomes
-                # (batch_size, channels, windows, frames, h ,w)
-                # the windows are padded so they remain consistent
-                # so the padded windows are just tensors of -1
+                # inputs shape is (batch_size , channels ,frames ,h ,w)
+                # targets shape is (batch_size)
                 inputs, target = data
 
                 if torch.cuda.is_available():
