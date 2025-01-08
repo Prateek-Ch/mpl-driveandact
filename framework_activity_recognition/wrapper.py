@@ -110,6 +110,10 @@ class QuantizationAwareTrainingWrapper():
             for i, data in enumerate(train_loader, 0):
                 self.logger.info("Training on epoch " + str(self.current_epoch + 1) + ", batch " + str(i))
                 
+                # here the transformation is performed and the shape of inputs becomes
+                # (batch_size, channels, windows, frames, h ,w)
+                # the windows are padded so they remain consistent
+                # so the padded windows are just tensors of -1
                 inputs, target = data
 
                 if torch.cuda.is_available():

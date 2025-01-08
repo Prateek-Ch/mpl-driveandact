@@ -243,11 +243,16 @@ class SlidingWindowDataset(FileBasedDataset):
         self.windows, self.window_labels = self.create_sliding_windows()
 
     def create_sliding_windows(self):
-        windows = []
-        labels = []
+        all_windows = []
+        all_labels = []
         for idx in range(len(self.data_file_list)):
             windows, labels = self.__loaditem__(idx)
-        return windows, labels
+            all_windows.append(windows)
+            all_labels.append(labels)
+            # x is the number of files in the dataset
+            # y windows are created where the shape of each of the window is (number of frames in a window, h, w, channels)
+            # hence the shape of all_windows is (x, y, num of frames, h, w, channels)
+        return np.array(all_windows), np.array(all_labels)
     def __loaditem__(self, index):
         if torch.is_tensor(index):
             index = index.toList()

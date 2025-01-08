@@ -98,7 +98,6 @@ class ToTensor(object):
 def custom_collate_fn(batch):
     """Custom collate function to handle padding of variable-sized video clips and labels."""
     
-    # data_batch contains 9 elements of shape [3, 16, 16, 224, 224]
     data_batch = [item[0] for item in batch]  # Extract data (video clips)
     label_batch = [item[1] for item in batch]  # Extract labels
     
