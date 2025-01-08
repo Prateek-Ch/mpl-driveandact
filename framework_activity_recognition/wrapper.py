@@ -11,7 +11,7 @@ class QuantizationAwareTrainingWrapper():
     """
     Wrapper for all the trainig modalities. Activation of some modalities are based on parameter passed in the constructor
     """
-    def __init__(self, student_network, num_classes, config_file, optimizer, writer, logger, teacher_network = None, annotation_converter = None,  criterion = nn.CrossEntropyLoss(),\
+    def __init__(self, student_network, num_classes, config_file, optimizer, writer, logger, teacher_network = None, annotation_converter = None,  criterion = nn.BCEWithLogitsLoss(),\
         current_epoch = 0, max_epochs = 100, test_rate = 10, scheduler = None, best_recall = 0.0, temperature=5, teacher_weight=0.7, quantization_framework=False, freeze_observer=None, freeze_bn=None):
         """
         Arguments:
@@ -113,7 +113,7 @@ class QuantizationAwareTrainingWrapper():
                 self.logger.info("Training on epoch " + str(self.current_epoch + 1) + ", batch " + str(i))
                 
                 # inputs shape is (batch_size , channels ,frames ,h ,w)
-                # targets shape is (batch_size)
+                # targets shape is (batch_size, num_frames, num_classes)
                 inputs, target = data
 
                 if torch.cuda.is_available():
@@ -126,20 +126,30 @@ class QuantizationAwareTrainingWrapper():
                 else:
                     student_outputs = self.student_network(inputs)
 
-                softmaxFunction = nn.Softmax(dim=1)
-
-                current_loss = self.criterion(softmaxFunction(student_outputs), target)
+                current_loss = self.criterion(student_outputs, target.float())
 
                 if self.teacher_network is not None:
                     current_loss = (1 - self.teacher_weight) * current_loss
+
                     if torch.cuda.is_available():
                         with torch.no_grad():
                             teacher_outputs = self.teacher_network(inputs).cuda()
                     else:
                         with torch.no_grad():
                             teacher_outputs = self.teacher_network(inputs)
-                    logSoftmaxFunction, klDiv = nn.LogSoftmax(dim=1), nn.KLDivLoss()
-                    current_loss += self.teacher_weight * self.temperature**2 * klDiv(logSoftmaxFunction(student_outputs/self.temperature), softmaxFunction(teacher_outputs/self.temperature))
+
+                    # Reshape for frame-wise KL divergence
+                    logSoftmaxFunction, klDiv = nn.LogSoftmax(dim=2), nn.KLDivLoss(reduction='batchmean')
+
+                    # Apply softmax and scaling to both teacher and student outputs
+                    teacher_outputs = logSoftmaxFunction(teacher_outputs / self.temperature)
+                    student_outputs_log = logSoftmaxFunction(student_outputs / self.temperature)
+
+                    # Frame-wise KL divergence
+                    kl_loss = klDiv(student_outputs_log, teacher_outputs)
+
+                    # Add KL loss to total loss
+                    current_loss += self.teacher_weight * (self.temperature**2) * kl_loss
 
                 mini_batch_losses.append(float(current_loss))
                 current_loss.backward()
@@ -181,6 +191,7 @@ class QuantizationAwareTrainingWrapper():
 
         self.save_model(epoch, self.student_network, self.quantization_framework, self.optimizer, self.criterion, self.annotation_converter, self.config_file['experiment']['model_save_path'] + "/" + self.config_file['experiment']['name'] + "/exp" + str(self.config_file["experiment"]["experiment_number"]) + "/latest_model.pth", self.teacher_network, self.scheduler)
 
+# TODO: Fix the test loop in accordance with the train loop
     def test(self, test_loader):
         """
         This method represents model testing procedure. The frequency of the test is defined in the config file.

@@ -1,9 +1,6 @@
 import os
 import torch
-import random as rn
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from framework_activity_recognition.processing import loadVideo, random_select, loadVideoSequence
 
@@ -248,20 +245,24 @@ class SlidingWindowDataset(FileBasedDataset):
         for idx in range(len(self.data_file_list)):
             windows, labels = self.__loaditem__(idx)
             all_windows.extend(windows)
-            all_labels.extend(labels)
+            all_labels.extend(labels)  # Use frame-level labels instead of aggregated ones
         return np.array(all_windows), np.array(all_labels)
     def __loaditem__(self, index):
         if torch.is_tensor(index):
             index = index.tolist()
+        
         file_path = self.data_file_list.loc[index, 'file_id']
         frame_start = self.data_file_list.loc[index, 'frame_start']
         frame_end = self.data_file_list.loc[index, 'frame_end']
+        
         frames = loadVideoSequence(file_path, frame_start, frame_end, self.resize)
-
-        # Create frame-wise labels
-        frame_labels = np.zeros(len(frames), dtype=np.int64)
+        
+        # Create frame-wise one-hot encoded labels
+        frame_labels = np.zeros((len(frames), self.nClasses), dtype=np.int64)
         label = self.annotations_transformed[index]
-        frame_labels[:] = label  # Assign same label to all frames initially
+        
+        # Set the one-hot encoding for each frame's label
+        frame_labels[:, label] = 1  # Set the corresponding index to 1
 
         windows = []
         labels = []
@@ -271,11 +272,11 @@ class SlidingWindowDataset(FileBasedDataset):
         for start in range(0, num_frames - self.window_size + 1, self.step_size):
             end = start + self.window_size
             window_frames = frames[start:end]
-            window_labels = frame_labels[start:end]
-            window_label = np.bincount(window_labels).argmax()  # Most frequent label in the window
+            window_labels = frame_labels[start:end]  # Use the one-hot encoded frame labels
+            
             windows.append(window_frames)
-            labels.append(window_label)
-        
+            labels.append(window_labels)  # Store the one-hot encoded labels for the window
+
         return np.array(windows), np.array(labels)
 
     def __len__(self):
