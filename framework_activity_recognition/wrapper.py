@@ -191,7 +191,6 @@ class QuantizationAwareTrainingWrapper():
 
         self.save_model(epoch, self.student_network, self.quantization_framework, self.optimizer, self.criterion, self.annotation_converter, self.config_file['experiment']['model_save_path'] + "/" + self.config_file['experiment']['name'] + "/exp" + str(self.config_file["experiment"]["experiment_number"]) + "/latest_model.pth", self.teacher_network, self.scheduler)
 
-# TODO: Fix the test loop in accordance with the train loop
     def test(self, test_loader):
         """
         This method represents model testing procedure. The frequency of the test is defined in the config file.
