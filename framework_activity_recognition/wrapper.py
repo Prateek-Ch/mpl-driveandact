@@ -181,7 +181,7 @@ class QuantizationAwareTrainingWrapper():
                 if student_mean_recall > self.best_recall:
                     self.best_recall = student_mean_recall
                     self.best_epoch = epoch
-                    self.save_model(epoch, self.student_network, self.quantization_framework, self.optimizer, self.criterion, self.annotation_converter, self.config_file['experiment']['model_save_path'] + "/" + self.config_file['experiment']['name'] + "/exp" + str(self.config_file["experiment"]["experiment_number"]) + "/best_model.pth", self.teacher_network, self.scheduler, self.quantization_function)
+                    self.save_model(epoch, self.student_network, self.quantization_framework, self.optimizer, self.criterion, self.annotation_converter, self.config_file['experiment']['model_save_path'] + "/" + self.config_file['experiment']['name'] + "/exp" + str(self.config_file["experiment"]["experiment_number"]) + "/best_model.pth", self.teacher_network, self.scheduler, None)
 
             self.current_epoch += 1
 
@@ -222,7 +222,7 @@ class QuantizationAwareTrainingWrapper():
         teacher_available_list = []
 
         for data in test_loader:
-            inputs, target = data
+            inputs, target = data  # inputs: (batch_size, channels, frames, h, w), target: (batch_size, frames, num_classes)
 
             if torch.cuda.is_available() and self.quantization_framework is False:
                 inputs, target = Variable(inputs.cuda(),volatile=True), Variable(target.cuda(),volatile=True)
@@ -247,78 +247,76 @@ class QuantizationAwareTrainingWrapper():
                     self.teacher_network.to('cpu')
                     teacher_outputs = self.teacher_network(inputs)
 
-            softmaxFunction = nn.Softmax(dim=1)
+            # Apply softmax for probabilities
+            softmaxFunction = nn.Softmax(dim=2)  # Apply along class dimension
+            student_probs = softmaxFunction(student_outputs)  # (batch_size, frames, num_classes)
+            student_pred = torch.argmax(student_probs, dim=2)  # (batch_size, frames)
 
-            _, student_pred = torch.max(softmaxFunction(student_outputs), 1)
-
+            teacher_pred = None
             if self.teacher_network is not None:
-                _, teacher_pred = torch.max(softmaxFunction(teacher_outputs), 1)
+                teacher_probs = softmaxFunction(teacher_outputs)  # (batch_size, frames, num_classes)
+                teacher_pred = torch.argmax(teacher_probs, dim=2)  # (batch_size, frames)
 
-            student_correct = [1 if current_pred == current_target else 0 for current_pred, current_target in zip(target.data, student_pred)]
-            student_incorrect = [1 if current_pred != current_target else 0 for current_pred, current_target in zip(target.data, student_pred)]
+            # Extract frame-wise ground-truth labels
+            frame_labels = target.argmax(dim=2)  # (batch_size, frames)
 
-            teacher_correct = [1 if current_pred == current_target else 0 for current_pred, current_target in zip(target.data, teacher_pred)]
-            teacher_incorrect = [1 if current_pred != current_target else 0 for current_pred, current_target in zip(target.data, teacher_pred)]
+            # Calculate frame-wise metrics
+            for b in range(frame_labels.size(0)):  # Iterate over batches
+                for f in range(frame_labels.size(1)):  # Iterate over frames
+                    current_target = int(frame_labels[b, f])
+                    current_student_pred = int(student_pred[b, f])
 
-            for i in range(len(target.data)):
-                student_current_target = int(target.data[i])
-                student_current_prediction = int(student_pred[i])
-                #add 1 if the target is classified right
-                student_class_correct[student_current_target] += student_correct[i]
-                #add 1 if the prediction is false
-                student_class_incorrect[student_current_prediction] += student_incorrect[i]
-                student_class_total_pred[student_current_prediction] += 1
-                student_class_total_target[student_current_target] += 1
-                student_available_list.append(student_current_target)
+                    # Update student metrics
+                    student_class_correct[current_target] += int(current_student_pred == current_target)
+                    student_class_incorrect[current_student_pred] += int(current_student_pred != current_target)
+                    student_class_total_pred[current_student_pred] += 1
+                    student_class_total_target[current_target] += 1
+                    student_available_list.append(current_target)
 
-                if self.teacher_network is not None:
-                    teacher_current_target = int(target.data[i])
-                    teacher_current_prediction = int(teacher_pred[i])
-                    #add 1 if the target is classified right
-                    teacher_class_correct[teacher_current_target] += teacher_correct[i]
-                    #add 1 if the prediction is false
-                    teacher_class_incorrect[teacher_current_prediction] += teacher_incorrect[i]
-                    teacher_class_total_pred[teacher_current_prediction] += 1
-                    teacher_class_total_target[teacher_current_target] += 1
-                    teacher_available_list.append(teacher_current_target)
+                    if self.teacher_network is not None:
+                        current_teacher_pred = int(teacher_pred[b, f])
 
+                        # Update teacher metrics
+                        teacher_class_correct[current_target] += int(current_teacher_pred == current_target)
+                        teacher_class_incorrect[current_teacher_pred] += int(current_teacher_pred != current_target)
+                        teacher_class_total_pred[current_teacher_pred] += 1
+                        teacher_class_total_target[current_target] += 1
+                        teacher_available_list.append(current_target)
+
+        # Calculate recall and precision for student
         student_recall_list = []
         student_precision_list = []
 
-        teacher_recall_list = []
-        teacher_precision_list = []
-
         for i in set(student_available_list):
             student_current_recall = student_class_correct[i] / student_class_total_target[i]
-
-            if student_class_total_pred[i] != 0:
-                student_current_precision = student_class_correct[i] / student_class_total_pred[i]
-            else:
-                student_current_precision = float('nan')
-
+            student_current_precision = (student_class_correct[i] / student_class_total_pred[i]
+                                        if student_class_total_pred[i] != 0 else float('nan'))
             student_recall_list.append(student_current_recall)
             student_precision_list.append(student_current_precision)
 
         student_mean_recall = np.mean(student_recall_list)
         student_mean_precision = np.nanmean(student_precision_list)
+
+        # Calculate recall and precision for teacher
+        teacher_recall_list = []
+        teacher_precision_list = []
+
+        teacher_mean_recall = None
+        teacher_mean_precision = None
         if self.teacher_network is not None:
             for i in set(teacher_available_list):
                 teacher_current_recall = teacher_class_correct[i] / teacher_class_total_target[i]
-
-                if teacher_class_total_pred[i] != 0:
-                    teacher_current_precision = teacher_class_correct[i] / teacher_class_total_pred[i]
-                else:
-                    teacher_current_precision = float('nan')
-
+                teacher_current_precision = (teacher_class_correct[i] / teacher_class_total_pred[i]
+                                            if teacher_class_total_pred[i] != 0 else float('nan'))
                 teacher_recall_list.append(teacher_current_recall)
                 teacher_precision_list.append(teacher_current_precision)
 
             teacher_mean_recall = np.mean(teacher_recall_list)
             teacher_mean_precision = np.nanmean(teacher_precision_list)
 
-            return student_mean_recall, student_mean_precision, student_recall_list, student_precision_list, teacher_mean_recall, teacher_mean_precision, teacher_recall_list, teacher_precision_list
+        return (student_mean_recall, student_mean_precision, student_recall_list, student_precision_list,
+                teacher_mean_recall, teacher_mean_precision, teacher_recall_list, teacher_precision_list)
 
-        return student_mean_recall, student_mean_precision, student_recall_list, student_precision_list, None, None, None, None
 
     def write_to_tensorboard(self, epoch, writer, annotation_converter, student_mean_recall, student_mean_precision, student_recall_list, \
         student_precision_list, teacher_mean_recall = None, teacher_mean_precision = None, teacher_recall_list = None, teacher_precision_list = None):
