@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: framework_activity_recognition with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "framework_activity_recognition",
+            "args": [
+                "train",
+                "config/train/i3dbaseline.yaml"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/mpl-driveandact"
+        }
+    ]
+}
